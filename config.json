@@ -1,0 +1,67 @@
+{
+	"db":
+	{
+		"host": "**",
+		"port": "**",
+		"user": "**",
+		"password": "***",
+		"database": "**"
+	},
+	"ids":
+	{
+		"rolesid": {
+			"voiceMuteRole": "798665009558978570",
+			"muteChatRole": "798650117120851968",
+			"defaultRole": "798311939356885023",
+			"playerRole": "596235630858731524"
+		},
+		"channelsid": {
+			"welcomeChan": "596231269621301249",
+			"leftChan": "596231269621301249",
+			"serverId": "596231269155864587",
+			"reglementChan": "597119527557267477",
+			"reglementMessage": "697518644430766080",
+			"botCmdChannel": "799032772055531551",
+			"discordCountChannel": "798327585963507743",
+			"reportChan": "800397470827544607",
+			"logs": "625274213401362441",
+			"joinCreate": "709012749300137995",
+			"joinCreateCat": "709012693574746113",
+			"ticketCat": "703934278052085810"
+		},
+		"permissionsid" : {
+			"ban": "596231599633465354 596232076861374485 596396772507779093 596347624152629259 596234383485042699 596233542015647764",
+			"kick": "596231599633465354 596232076861374485 596396772507779093 596347624152629259 596234383485042699 596233542015647764 596232598443786250",
+			"mute": "596231599633465354 596232076861374485 596396772507779093 596347624152629259 596234383485042699 596233542015647764 596232598443786250",
+			"warn": "596231599633465354 596232076861374485 596396772507779093 596347624152629259 596234383485042699 596233542015647764 596232598443786250",
+			"cv": "596231599633465354 596232076861374485 596396772507779093 596347624152629259 596234383485042699 596233542015647764 596232598443786250"
+		}
+	},
+	"motd":
+	{
+		"PositivReaction": "👍",
+		"negativReaction": "👎",
+		"enterReason": "Merci d'entrer une raison.",
+		"clearDone": "à nottoyé le channel.",
+		"errorClear": "Erreur pendant le clear du channel.",
+		"memberUndefinded": "Membre non définit.",
+		"lostMemberStart": ":beginner: ",
+		"lostMemberEnd": " Vient de nous quitter :beginner:",
+		"closed": "à fermé le channel.",
+		"wrongBotChannel": "Attention,\nUtilise le bot uniquement dans le channel dédié \n:beginner: Bonne Countinuation sur la communauté Zertrix :beginner:",
+		"openTickets": "Le tickets a bien été ouvert.",
+		"TicketChanOpen": "Ouverture du Ticket.\nExposer votre probleme au <@&596347624152629259>\nRéagissez avec 🔒",
+		"cantBan": "Vous ne pouvez pas bannir ce joueur.",
+		"cantKick": "Vous ne pouvez pas exclur ce joueur.",
+		"enterTypeMute": "Merci d'entrer le type de mute.",
+		"reportTaken": "Report bien prit en compte.",
+		"MusicEnterChannel": "Tu n'es dans aucun channel.",
+		"cantJoinVC": "Impossible de rejoindre le voice chat.",
+		"noMusic": "Il n'y a pas de musique en cours."
+	},
+	"other":
+	{
+		"prefix": "!",
+		"insults": "abruti chier enculer foutre abrutis batard biatch baise bite bouffon bouffonne bougnoul bougnoule bounioul bounioule branleur burnes couille chiennasse chienne chieur chinetoc chinetoque con conasse connard connasse enculé race fachiste facho fdp gueule chienne pute bite bites gland gnoul gnoule gouine"
+	}
+}
