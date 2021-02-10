@@ -5,11 +5,13 @@ const Client = new Discord.Client;
 //config
 var config = require('./config.json');
 
+const pc = require("page-content");
+
 //Music Player
 const ytdl = require('ytdl-core');
 const { YTSearcher } = require('ytsearcher');
 const searcher = new YTSearcher({
-    key: "YT_API_KEY",
+    key: "***********************",
     revealkey: true,
   });
 const queue = new Map();
@@ -24,7 +26,6 @@ let invites;
 
 //Mysql Db
 var mysql = require('mysql');
-const { Console } = require("console");
 
 var db = mysql.createConnection({
     host: config.db.host,
@@ -62,21 +63,21 @@ Client.on("ready", async() => {
 });
 
 Client.on("guildMemberAdd", async(member) => {
-    console.log("New player => "+ member.displayName)
-
     member.guild.fetchInvites().then(gInvites => {
 
         const invite = gInvites.find((inv) => invites.get(inv.code).uses < inv.uses);
         
         var post  = {invited: member.id, inviter: invite.inviter.id, code: invite.code};
         db.query('INSERT INTO invitation SET ?', post, function (error, results, fields) {
-            if (error) throw error;
-        });
-        db.query('SELECT * FROM `invitation` WHERE `inviter` = '+ invite.inviter.id, function (error, results, fields) {
-            const channel = Client.channels.cache.find(channel => channel.id == config.ids.channelsid.leftChan)
-            channel.send("\n:beginner: "+ member.displayName+"Vient de nous rejoindre :beginner: \n Nous sommes désormais ** "+ member.guild.memberCount +" ** sur le serveur !\nMerci a *"+invite.inviter.displayName+"* de l'avoir invité ainsi que **"+results.length+"** joueurs\n")
-        })
 
+            db.query('SELECT * FROM `invitation` WHERE `inviter` = '+ invite.inviter.id, function (error, results, fields) {
+                const channel = Client.channels.cache.find(channel => channel.id == config.ids.channelsid.leftChan)
+                const memberInviter = Client.guilds.cache.find(guild => guild.id == config.ids.channelsid.serverId).members.cache.find(member => member.id === JSON.parse(JSON.stringify(results))[0]['inviter']);
+
+                channel.send("\n:beginner: "+ member.displayName+" vient de nous rejoindre :beginner: \n Nous sommes désormais ** "+ member.guild.memberCount +" ** sur le serveur !\nMerci a *"+memberInviter.displayName+"* de l'avoir invité ainsi que **"+results.length+"** joueurs\n")
+                channel.send("--------------------------------------------------")
+            })
+        });
     })
 
 
@@ -100,6 +101,7 @@ Client.on("guildMemberRemove", member => {
 
     const channel = Client.channels.cache.find(channel => channel.id == config.ids.channelsid.welcomeChan)
     channel.send(config.motd.lostMemberStart+member.displayName+config.motd.lostMemberEnd)
+    channel.send("--------------------------------------------------")
 });
 
 Client.on('voiceStateUpdate', (oldMember, newMember) => {
@@ -182,8 +184,69 @@ Client.on("messageReactionRemove", (reaction, user) => {
 })
 
 Client.on("message", message => {
+
+    if(message.channel.id == "698546600305361066"){
+        const voter = message.content.toLowerCase().replace(" vient de voter pour le serveur !","")
+
+        db.query("SELECT * FROM users WHERE vote_name='"+voter+"'", function (error, results, fields) {
+            if(results.length >0){
+                var post  = {account_id: results[0]['id']};
+                db.query('INSERT INTO votes SET ?', post)
+            }
+        });
+    }
+
     if(message.author.bot) return;
-    if(message.channel.type == "dm") return;
+
+    //BOT CLAIM
+    if(message.channel.type == "dm") {
+        const mcontent = message.content.toLowerCase()
+        if(!mcontent.includes("stop")) {
+
+            db.query('SELECT * FROM `users` WHERE discord_id='+message.author.id, function (error, results, fields) {
+                if(results.length > 0) {
+                    if(results[0]['status'] == "setting_steam"){
+                        if(mcontent.includes("https://steamcommunity.com/id/")){
+                            claimSteamId(mcontent.replace("https://steamcommunity.com/id/", "").replace("/","").replace(" ",""))
+                        } else if(mcontent.includes("https://steamcommunity.com/profiles/")){
+                            claimSteamId(mcontent.replace("https://steamcommunity.com/profiles/", "").replace("/","").replace(" ",""))
+                        } else {
+                            message.author.send("Lien steam Invalide.")
+                            message.reply(config.motd.negativReaction)
+                        }
+                    } else if(results[0]['status'] == "setting_vote"){
+                        db.query("SELECT * FROM `users` WHERE vote_name='"+mcontent+"'", function (error, results, fields) {
+                            if(results.length == 0){
+                                db.query("UPDATE users SET status = 'closed', vote_name='"+mcontent+"' WHERE discord_id="+message.author.id)
+                                message.author.send("Merci, Vous recevrez donc 500$ in game a chaque vote\nMerci.")
+                            } else {
+                                message.author.send("Ce Pseudo de vote est déja utilisé.")
+                            }
+                        })
+                    }
+                } 
+            })
+        } else {
+            db.query("UPDATE users SET status = 'unfinished' WHERE discord_id="+message.author.id)  
+        }
+        return;
+    }
+
+    //////API ID STEAMMM
+    function claimSteamId(id,custom){
+        if(id){
+            pc.parseFromURL("https://steamidfinder.com/lookup/"+id).then(res => {
+                res['meta']['title'].split(" ").forEach(element => {
+                    if(element.includes("STEAM_")){
+                        db.query("UPDATE users SET status = 'setting_vote', steam_id='"+element+"' WHERE discord_id="+message.author.id)
+                        message.author.send("Une derniere étape, entrez le pseudo avec lequel vous votez.\nEn cas d'erreur, envoyer 'Stop'.")
+                    }
+                })
+            });
+        } else {
+            message.author.send("Merci de mettre le lien de ton profil steam.\nEn cas d'erreur, envoyer 'Stop'.")
+        }
+    }
 
     const insults = config.other.insults.split(" ");
     let insultD = false;
@@ -319,7 +382,7 @@ Client.on("message", message => {
 
 
                     var post  = {opened: message.author.id, channelid: channel.id};
-                    var query = db.query('INSERT INTO tickets SET ?', post)
+                   db.query('INSERT INTO tickets SET ?', post)
 
                     channel.send(config.motd.TicketChanOpen).then((message) => {
                         message.react("🔒")
@@ -336,7 +399,7 @@ Client.on("message", message => {
                         const reason = message.content.slice(prefix.length).trim().replace("ban", "").replace("<@!"+mention.id+">", "");
                         if(checkReason(message,reason)) {
                             var post  = {banned: mention.id, banner: message.author.id, reason: reason};
-                            var query = db.query('INSERT INTO bans SET ?', post, function (error, results, fields) {
+                            db.query('INSERT INTO bans SET ?', post, function (error, results, fields) {
                                 if (error) throw error;
                             });
                             message.react(config.motd.PositivReaction);
@@ -370,7 +433,7 @@ Client.on("message", message => {
                         const reason = message.content.slice(prefix.length).trim().replace("kick", "").replace("<@!"+mention.id+">", "");
                         if(checkReason(message,reason)) {
                             var post  = {kicked: mention.id, kicker: message.author.id, reason: reason};
-                            var query = db.query('INSERT INTO kicks SET ?', post, function (error, results, fields) {
+                            db.query('INSERT INTO kicks SET ?', post, function (error, results, fields) {
                                 if (error) throw error;
                             });
 
@@ -434,7 +497,7 @@ Client.on("message", message => {
                         return;
                     }
                     var post  = {muted: mention.id, muter: message.author.id, type: args[2], reason: reason};
-                    var query = db.query('INSERT INTO mutes SET ?', post, function (error, results, fields) {
+                    db.query('INSERT INTO mutes SET ?', post, function (error, results, fields) {
                         if (error) throw error;
                     });
                 }
@@ -471,7 +534,7 @@ Client.on("message", message => {
                     const reason = message.content.slice(prefix.length).trim().replace("warn", "").replace("<@!"+mention.first().id+">", "");
                     if(checkReason(message,reason)) {
                         var post  = {warned: mention.first().id, warner: message.author.id, reason: reason};
-                        var query = db.query('INSERT INTO warns SET ?', post, function (error, results, fields) {
+                        db.query('INSERT INTO warns SET ?', post, function (error, results, fields) {
                             if (error) throw error;
                         });
                         message.react(config.motd.PositivReaction);
@@ -505,7 +568,7 @@ Client.on("message", message => {
                     chan.send("**"+message.member.displayName+"** à report : **"+mentionR.displayName+"** pour : **"+reason+"** \n ")
 
                     var post  = {reported: mentionR.id, reporter: message.author.id, reason: reason};
-                    var query = db.query('INSERT INTO reports SET ?', post, function (error, results, fields) {
+                    db.query('INSERT INTO reports SET ?', post, function (error, results, fields) {
                         if (error) throw error;
                     });
 
@@ -577,37 +640,57 @@ Client.on("message", message => {
             }
             }
         }
+        function claim() {   
+            db.query("SELECT * FROM users WHERE discord_id='"+message.member.id+"'", post, function (error, results, fields) {
+                if(results.length > 0){
+                    db.query("UPDATE users SET status='setting_steam', steam_id='undefinded', vote_name='undefinded' WHERE discord_id="+message.author.id)
+                } else {
+                    var post  = {discord_id: message.member.id};
+                    db.query('INSERT INTO users SET ?', post)
+                }
+            });
+
+            const embed = new Discord.MessageEmbed()
+            embed.addField("Bonjour"+message.member.displayName+", Merci de mettre le lien de ton profil steam.", "[Disponible ici.](https://steamcommunity.com/login)  En cas d'erreur, envoyer 'stop'");
+            message.author.send(embed)
+            message.react(config.motd.PositivReaction)
+        }
 
         //#endregion COMMANDS FUNCTIONS
 
-        if(message.content.toLowerCase().includes("ping") || message.content.toLowerCase().includes("pings")){
+        const mcontent = message.content.toLowerCase()
+        if(mcontent.includes("ping") || mcontent.includes("pings")){
             ping()
-        } else if(message.content.toLowerCase().includes("ticket") || message.content.toLowerCase().includes("tickets")){
+        } else if(mcontent.includes("ticket") || mcontent.includes("tickets")){
             ticket()
-        } else if(message.content.toLowerCase().includes("ban") || message.content.toLowerCase().includes("bans")){
+        } else if(mcontent.includes("ban") || mcontent.includes("bans")){
             ban()
-        } else if(message.content.toLowerCase().includes("unban") || message.content.toLowerCase().includes("unbans") || message.content.toLowerCase().includes("debans") || message.content.toLowerCase().includes("deban")){
+        } else if(mcontent.includes("unban") || mcontent.includes("unbans") || mcontent.includes("debans") || mcontent.includes("deban")){
             unban()
-        } else if(message.content.toLowerCase().includes("kick") || message.content.toLowerCase().includes("kicks")){
+        } else if(mcontent.includes("kick") || mcontent.includes("kicks")){
             kick()
-        } else if(message.content.toLowerCase().includes("mute") || message.content.toLowerCase().includes("mutes")){
+        } else if(mcontent.includes("mute") || mcontent.includes("mutes")){
             mute()
-        } else if(message.content.toLowerCase().includes("unmute") || message.content.toLowerCase().includes("unmutes")){
+        } else if(mcontent.includes("unmute") || mcontent.includes("unmutes")){
             unmute()
-        } else if(message.content.toLowerCase().includes("warn") || message.content.toLowerCase().includes("warns")){
+        } else if(mcontent.includes("warn") || mcontent.includes("warns")){
             warn()
-        } else if(message.content.toLowerCase().includes("report") || message.content.toLowerCase().includes("reports")){
+        } else if(mcontent.includes("report") || mcontent.includes("reports")){
             report()
-        } else if(message.content.toLowerCase().includes("cv")){
+        } else if(mcontent.includes("cv")){
             cv()
-        } else if(message.content.toLowerCase().includes("old") || message.content.toLowerCase().includes("olds") || message.content.toLowerCase().includes("olds")){
+        } else if(mcontent.includes("old") || mcontent.includes("olds") || mcontent.includes("olds")){
             old()
-        } else if(message.content.toLowerCase().includes("play")){
+        } else if(mcontent.includes("claim") || mcontent.includes("reward") || mcontent.includes("rewards")){
+            claim()
+        } else if(mcontent.includes("play")){
             SongsManager(message,serverQueue)
-        } else if(message.content.toLowerCase().includes("skip") || message.content.toLowerCase().includes("skips")){
+        } else if(mcontent.includes("skip") || mcontent.includes("skips")){
             skipMusic(message,serverQueue)
-        } else if(message.content.toLowerCase().includes("stop") || message.content.toLowerCase().includes("stope") || message.content.toLowerCase().includes("stops")){
+        } else if(mcontent.includes("stop") || mcontent.includes("stope") || mcontent.includes("stops")){
             stopMusic(message,serverQueue)
+        } else if(mcontent.includes("test")) {
+
         }
 
     } else {
@@ -618,7 +701,7 @@ Client.on("message", message => {
         });
         if(msg.replace(/\s/g,'') != "") {
             var post  = {id: message.id, userid: message.author.id, userDisplay: message.member.displayName, message: msg};
-            var query = db.query('INSERT INTO messages SET ?', post, function (error, results, fields) {
+            db.query('INSERT INTO messages SET ?', post, function (error, results, fields) {
                 if (error) throw error;
             });
         }
@@ -729,4 +812,4 @@ function skipMusic(message, serverQueue){
 }
 
 
-Client.login("YOUR_TOKEN")
+Client.login("********************************")
