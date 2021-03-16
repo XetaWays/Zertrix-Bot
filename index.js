@@ -5,17 +5,16 @@ const Client = new Discord.Client;
 //config
 var config = require('./config.json');
 
-const pc = require("page-content");
+var voiceList = 0;
 
 //Music Player
 const ytdl = require('ytdl-core');
 const { YTSearcher } = require('ytsearcher');
 const searcher = new YTSearcher({
-    key: "***********************",
+    key: config.mod.ytbSearch,
     revealkey: true,
   });
 const queue = new Map();
-
 
 const prefix = config.other.prefix;
 
@@ -43,6 +42,8 @@ db.connect(err => {
 Client.on("ready", async() => {
     console.log("Zertrix bot is on !");
 
+    Client.user.setActivity("!help\nRejoignez nous\nSur Discord: discord.gg/eCuxhSUjy7\nGmod: 65.21.30.122", { type: 'LISTENING' });
+
     Client.guilds.cache.find(guild => guild.id == config.ids.channelsid.serverId).fetchInvites().then(inv => {
         invites = inv;
     })
@@ -53,29 +54,38 @@ Client.on("ready", async() => {
       var onlineCount = Client.guilds.cache.find(guild => guild.id == config.ids.channelsid.serverId).members.cache.filter(member => member.presence.status !== "offline").size;
       Client.guilds.cache.find(guild => guild.id == config.ids.channelsid.serverId).channels.cache.find(channel => channel.id === config.ids.channelsid.discordCountChannel).setName("Discord : "+onlineCount+ " Online");
     }, the_interval);
-
+   
     //Store rules message in cache
     Client.guilds.cache.find(guild => guild.id == config.ids.channelsid.serverId).channels.cache.find(channel => channel.id === config.ids.channelsid.reglementChan).messages.fetch(config.ids.channelsid.reglementMessage).then(message =>{
         console.log("Reglement Message bien ajouté au cache");
     }).catch(err => {
-        console.log("Erreur pendant la sauveggarde du message reglement auy cache : "+err);
+        console.log("Erreur pendant la sauveggarde du message reglement au cache : "+err);
+    })
+
+    //Store Eleve Gendarme message in cache
+    Client.guilds.cache.find(guild => guild.id == config.ids.channelsid.serverId).channels.cache.find(channel => channel.id === "815325811954810920").messages.fetch("819232559073460234").then(message =>{
+        console.log("Eleve Gendarme Message bien ajouté au cache");
+    }).catch(err => {
+        console.log("Erreur pendant la sauveggarde du message Eleve Gendarme au cache : "+err);
     })
 });
 
 Client.on("guildMemberAdd", async(member) => {
+    Client.guilds.cache.find(guild => guild.id == config.ids.channelsid.serverId).channels.cache.find(channel => channel.id === config.ids.channelsid.discordCountChannel).setName(member.guild.memberCount+ " membres");
+
     member.guild.fetchInvites().then(gInvites => {
 
-        const invite = gInvites.find((inv) => invites.get(inv.code).uses < inv.uses);
-        
+        const invite = gInvites.find(inv => !invites.get(inv.code) || invites.get(inv.code).uses < inv.uses);
+
         var post  = {invited: member.id, inviter: invite.inviter.id, code: invite.code};
         db.query('INSERT INTO invitation SET ?', post, function (error, results, fields) {
 
             db.query('SELECT * FROM `invitation` WHERE `inviter` = '+ invite.inviter.id, function (error, results, fields) {
                 const channel = Client.channels.cache.find(channel => channel.id == config.ids.channelsid.leftChan)
                 const memberInviter = Client.guilds.cache.find(guild => guild.id == config.ids.channelsid.serverId).members.cache.find(member => member.id === JSON.parse(JSON.stringify(results))[0]['inviter']);
+                
+                channel.send("`# Nouvel arrivant !                       `\n────────────────────────────\n:small_blue_diamond: Bienvenue à : **"+member.displayName+"**\n:small_blue_diamond: Invité par : **"+memberInviter.displayName+"**\n:small_blue_diamond: Nombre d'invitation(s) : **"+results.length+"**\n:small_blue_diamond: Lien d'invitation : **"+invite+"**\n:small_blue_diamond: Nombre de joueur sur le serveur : **"+member.guild.memberCount+"**\n────────────────────────────\n")
 
-                channel.send("\n:beginner: "+ member.displayName+" vient de nous rejoindre :beginner: \n Nous sommes désormais ** "+ member.guild.memberCount +" ** sur le serveur !\nMerci a *"+memberInviter.displayName+"* de l'avoir invité ainsi que **"+results.length+"** joueurs\n")
-                channel.send("--------------------------------------------------")
             })
         });
     })
@@ -98,16 +108,23 @@ Client.on("guildMemberAdd", async(member) => {
 
 Client.on("guildMemberRemove", member => {
     console.log("lost 1 player player => "+ member.displayName)
-
-    const channel = Client.channels.cache.find(channel => channel.id == config.ids.channelsid.welcomeChan)
-    channel.send(config.motd.lostMemberStart+member.displayName+config.motd.lostMemberEnd)
-    channel.send("--------------------------------------------------")
+    Client.guilds.cache.find(guild => guild.id == config.ids.channelsid.serverId).channels.cache.find(channel => channel.id === config.ids.channelsid.discordCountChannel).setName(member.guild.memberCount+ " membres");
 });
 
 Client.on('voiceStateUpdate', (oldMember, newMember) => {
     let newUserChannel = newMember.channelID;
     let oldUserChannel = oldMember.channelID;
- 
+ 	if(newUserChannel){
+        voiceList++;
+        console.log("voiceList Update : "+voiceList)
+        Client.guilds.cache.find(guild => guild.id == config.ids.channelsid.serverId).channels.cache.get("814940336727523399").setName("En Discussion :").catch(console.error);
+    } else {
+        if(voiceList != 0){
+        	voiceList--;
+            Client.guilds.cache.find(guild => guild.id == config.ids.channelsid.serverId).channels.cache.get("814940336727523399").setName("En Discussion :").catch(console.error);
+            console.log("voiceList Update : "+voiceList)
+        }
+    }
     if(newUserChannel === config.ids.channelsid.joinCreate) { 
         channelCount++;
 
@@ -137,7 +154,7 @@ Client.on('voiceStateUpdate', (oldMember, newMember) => {
 Client.on("messageReactionAdd", (reaction, user) => {
     if(user.bot) return;
 
-    if(reaction.emoji.name == "✅") {
+    if(reaction.emoji.name == "✅" && reaction.message.id == config.ids.channelsid.reglementMessage) {
         var member = reaction.message.guild.members.cache.find(member => member.id === user.id);
 
         member.roles.add(config.ids.rolesid.playerRole).then(mbr => {
@@ -160,6 +177,14 @@ Client.on("messageReactionAdd", (reaction, user) => {
                 })    
             }
         })
+    } else if(reaction.emoji.name == "🚓" && reaction.message.id == "819232559073460234"){
+        var member = reaction.message.guild.members.cache.find(member => member.id === user.id);
+
+        member.roles.add("815325468601221161").then(mbr => {
+            console.log("Eleve Gendarme add to "+ mbr.displayName);
+        }).catch(err => {
+            console.log("Elevegendarme: Le role n'as pas pu etre ajouté à : "+ err);
+        })
     }
 });
 
@@ -167,9 +192,9 @@ Client.on("messageReactionRemove", (reaction, user) => {
     if(user.bot) return;
     var member = reaction.message.guild.members.cache.find(member => member.id === user.id);
 
-    if(reaction.emoji.name == "✅") {
+    if(reaction.emoji.name == "✅" && reaction.message.id == config.ids.channelsid.reglementMessage) {
         member.roles.add(config.ids.rolesid.defaultRole).then(mbr => {
-            console.log("Default role added to "+ mbr.displayName);
+            console.log("remove role added to "+ mbr.displayName);
 
             member.roles.remove(config.ids.rolesid.playerRole).then(mbr => {
                 console.log("Default role removed to "+ mbr.displayName);
@@ -179,6 +204,14 @@ Client.on("messageReactionRemove", (reaction, user) => {
 
         }).catch(err => {
             console.log("Le role n'as pas pu ajouté retiré : "+ err);
+        })
+    }  else if(reaction.emoji.name == "🚓" && reaction.message.id == "819232559073460234"){
+        var member = reaction.message.guild.members.cache.find(member => member.id === user.id);
+
+        member.roles.remove("815325468601221161").then(mbr => {
+            console.log("Eleve Gendarme removed to "+ mbr.displayName);
+        }).catch(err => {
+            console.log("Elevegendarme: Le role n'as pas pu etre remove à : "+ err);
         })
     }
 })
@@ -235,14 +268,8 @@ Client.on("message", message => {
     //////API ID STEAMMM
     function claimSteamId(id,custom){
         if(id){
-            pc.parseFromURL("https://steamidfinder.com/lookup/"+id).then(res => {
-                res['meta']['title'].split(" ").forEach(element => {
-                    if(element.includes("STEAM_")){
-                        db.query("UPDATE users SET status = 'setting_vote', steam_id='"+element+"' WHERE discord_id="+message.author.id)
-                        message.author.send("Une derniere étape, entrez le pseudo avec lequel vous votez.\nEn cas d'erreur, envoyer 'Stop'.")
-                    }
-                })
-            });
+            db.query("UPDATE users SET status = 'setting_vote', steam_id='"+id+"' WHERE discord_id="+message.author.id)
+            message.author.send("Une derniere étape, entrez le pseudo avec lequel vous votez.\nEn cas d'erreur, envoyer 'Stop'.")
         } else {
             message.author.send("Merci de mettre le lien de ton profil steam.\nEn cas d'erreur, envoyer 'Stop'.")
         }
@@ -275,6 +302,39 @@ Client.on("message", message => {
         }
     });
 
+
+    message.content.split(" ").forEach(main => {
+        var countReapt = 0
+        message.content.split(" ").forEach(element1 => {
+            if(element1 == main){
+                countReapt++;
+                if(countReapt > 2){
+                    message.react("❗")
+
+                    const channel = Client.guilds.cache.find(guild => guild.id == config.ids.channelsid.serverId).channels.cache.find(channel => channel.id === config.ids.channelsid.logs)
+
+                    const embed = new Discord.MessageEmbed()
+                    .setColor('#FFA500')
+                    .setTitle("Suspicion De Spam")
+                    .setDescription('Un message nous parrait suspect, merci de vérifier:')
+                    .setThumbnail('https://img.icons8.com/ios/452/spam.png')
+                    .addFields(
+                        { name: 'Channel :', value: "**"+message.channel.toString()+"**" },
+                        { name: 'Auteur :', value: "**"+message.member.displayName+"**" },
+                        { name: 'Message :', value: "**"+message.content+"**" },
+                        { name: ' Suspect :', value: "**"+main+"**" },
+                    )
+                    .setTimestamp()
+                    .setFooter("En cas d'erreur, n'hésitez pas a contacter le staff.");
+
+                    channel.send(embed);
+                }
+            }
+        });
+    });
+
+
+
     //Music Queue
     const serverQueue = queue.get(message.guild.id)
 
@@ -306,12 +366,17 @@ Client.on("message", message => {
             let roleUpdate = message.guild.roles.cache.find(role => role.id === config.ids.rolesid.playerRole);
 
             message.channel.updateOverwrite(roleUpdate, { SEND_MESSAGES: true });
-            message.reply("à ouvert le channel.")
+            message.reply("a ouvert le channel.")
         } else {
             message.delete()
         }
         return;
     } else if(message.content.startsWith(prefix+"help")){
+        if(message.channel.id != config.ids.channelsid.botCmdChannel) {
+            message.delete()
+        } else {
+            message.react(config.motd.PositivReaction)
+        }
         message.author.send("Voici les commandes disponibles sur le Discord de la communauté Zertrix : \n"+
                             "--------------------------------------------------------------- \n"+
                             "**"+prefix+"clear** => Clear un channel. (Tout Channel & Staff).\n"+
@@ -597,7 +662,23 @@ Client.on("message", message => {
                                     db.query('SELECT * FROM `bans` WHERE `banned` = '+ mention.id, function (error, resultsBans, fields) {
                                         if(error) throw error;
                                         var bans = resultsBans.length;
-                                        message.member.send("--------------------------------------------------\nVoici le cv de **"+mention.displayName+"**\n--------------------------------------------------\nReports : **"+reports+"**\nWarns : **"+warns+"**\nMutes : **"+mutes+"**\nKicks : **"+kicks+"**\nBans : **"+bans+"**\n--------------------------------------------------")
+
+                                        const embed = new Discord.MessageEmbed()
+                                        .setColor('#FFA500')
+                                        .setTitle("Statistiques")
+                                        .setDescription("Voici les statistiques de :**"+mention.displayName+"**")
+                                        .setThumbnail('https://i.imgur.com/N8VzoHc.png')
+                                        .addFields(
+                                            { name: 'Reports :', value: reports },
+                                            { name: 'Warns :', value: warns },
+                                            { name: 'Mutes :', value: mutes },
+                                            { name: 'Kicks :', value: kicks },
+                                            { name: 'Bans :', value: bans },
+                                        )
+                                        .setTimestamp()
+                                        .setFooter("Bonne continuation Sur Zertrix.");
+                            
+                                        message.member.send(embed);
                                     });
                                 });
                             });
@@ -700,7 +781,7 @@ Client.on("message", message => {
             msg = msg.replace("<@!"+element.id+">", element.displayName)
         });
         if(msg.replace(/\s/g,'') != "") {
-            var post  = {id: message.id, userid: message.author.id, userDisplay: message.member.displayName, message: msg};
+            var post  = {id: message.id, userid: message.author.id, userDisplay: message.member.displayName, message: unescape(encodeURIComponent(msg))};
             db.query('INSERT INTO messages SET ?', post, function (error, results, fields) {
                 if (error) throw error;
             });
@@ -812,4 +893,4 @@ function skipMusic(message, serverQueue){
 }
 
 
-Client.login("********************************")
+Client.login(config.mod.key)
