@@ -313,6 +313,7 @@
                                     key:   channelid,
                                     value: ["morpion",null, null, joueur2id, joueur1id, true]
                                 });
+
                                 var interval = setInterval(() => {
                                     var chan = Client.guilds.cache.find(guild => guild.id == config.ids.channelsid.serverId).channels.cache.find(channel => channel.id == chanid)
                                         if(chan){
@@ -990,9 +991,10 @@
                         
                         let rolePlayer = message.guild.roles.cache.find(role => role.id === config.ids.rolesid.playerRole);
 
-                        channel.updateOverwrite(message.member, { VIEW_CHANNEL: true , SEND_MESSAGES: false, ADD_REACTIONS:false});
-                        channel.updateOverwrite(mention, { VIEW_CHANNEL: true, SEND_MESSAGES: false, ADD_REACTIONS:false});
-                        channel.updateOverwrite(rolePlayer, { VIEW_CHANNEL: false , SEND_MESSAGES: false});
+                        channel.updateOverwrite(message.author.id, { VIEW_CHANNEL: true , SEND_MESSAGES: false, ADD_REACTIONS:false});
+                        channel.updateOverwrite(rolePlayer.id, { VIEW_CHANNEL: false , SEND_MESSAGES: false});
+                        channel.updateOverwrite(mention.id, { VIEW_CHANNEL: true, SEND_MESSAGES: false, ADD_REACTIONS:false});
+
 
                         games.push({
                             key:   channel.id,
